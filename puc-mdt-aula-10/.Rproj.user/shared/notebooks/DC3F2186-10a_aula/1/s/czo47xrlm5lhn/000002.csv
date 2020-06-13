@@ -1,0 +1,5 @@
+"0","gr_emails %>% "
+"0","  ggraph(layout = 'fr') + "
+"0","  geom_edge_link(arrow = arrow(length = unit(3, 'mm')), "
+"0","                 end_cap = circle(3, 'mm')) + "
+"0","  geom_node_point(size = 5)"

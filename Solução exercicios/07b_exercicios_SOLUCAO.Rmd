@@ -1,0 +1,263 @@
+---
+title: "MP PDT Data Science 2020 Aula 07 -- Exercicios"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggridges)
+library(plotly)
+```
+
+# Dataset 1: Carros
+
+```{r}
+df_carros <- read_csv("data/carros.csv")
+df_carros %>% glimpse
+```
+
+Fazer Gráficos:
+
+1.1 Barras da frequencia de tipo de combustivel
+```{r}
+df_carros %>%
+  ggplot(aes(x = fl, fill = fl)) +
+  geom_bar() +
+  coord_flip() +
+  labs(title = "Frequência de tipo de combustível", y = "Observações", x = "Tipo de combustível") +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position = "none")
+```
+
+1.2 Reportar o carro compacto com maior eficiencia de combustivel na estrada (hwy), e na cidade (cty)
+
+```{r}
+df_carros %>%
+  filter(class == "compact") %>%
+  ggplot(aes(x=hwy, y=cty, label = manufacturer, label2 = year)) +
+  geom_point() +
+  labs(title = "milhas por galão (cidade) x milhas por galão (estrada)", y = "milhas por galão (cidade)", x = "milhas por galão (estrada)") +
+  theme_minimal()
+```
+
+Poderiamos deixar assim, porem para facilitar a identificação, iremos utilizar plotly, adicionando uma coluna `id` para identificar unicamente cada carro, logo depois adicionando `id` como label para que apareça no ggplotly.
+
+```{r}
+p1 <- df_carros %>%
+  mutate(id = 1:nrow(df_carros)) %>%
+  filter(class == "compact") %>%
+  ggplot(aes(x=hwy, y=cty, label = id)) +
+  geom_point() +
+  labs(title = "milhas por galão (cidade) x milhas por galão (estrada)", y = "milhas por galão (cidade)", x = "milhas por galão (estrada)") +
+  theme_minimal()
+
+ggplotly(p1)
+```
+
+
+
+1.3 Grafico faceteado de eficiencia na cidade (cty) vs cilindrada (displ) faceteado por tipo de transmissao (trans)
+
+```{r}
+df_carros %>%
+  ggplot(aes(x = cty, y = displ, color = trans)) +
+  geom_point() +
+  facet_wrap(~trans) +
+  labs(title = "milhas por galão (cidade) x milhas por galão (estrada)\n(faceteado por tipo de câmbio)", x = "milhas por galão (cidade)", y = "milhas por galão (estrada)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+# Dataset 2: Gapminder
+
+```{r}
+df_gapminder <- read_csv("data/gapminder.csv")
+df_gapminder %>% glimpse
+```
+
+2.1 Mostrar num mesmo grafico a evolucao do PIB per capita da Argentina, Chile, e Paraguay por ano
+
+```{r}
+df_gapminder %>%
+  filter(country %in% c("Argentina", "Chile", "Paraguay")) %>%
+  ggplot(aes(x = year, y = gdpPercap, color = country)) +
+  geom_line() +
+  labs(title = "PIB per capita ao longo dos anos", x = "Ano", y = "PIB per capita") +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+
+2.2 Fazer boxplot da populacao vs continente, excluindo a Oceania, faceteado pelos seguintes anos: 1987,1992,1997,2002.
+
+```{r}
+df_gapminder %>%
+  group_by(continent, year) %>%
+  filter(continent != "Oceania",
+         year %in% c(1987, 1992, 1997, 2002)) %>%
+  ggplot(aes(x = continent, y = pop, fill = continent)) +
+  geom_boxplot() +
+  facet_wrap(~year) +
+  scale_y_log10() + #Necessario por causa da cauda longa
+  labs(title = "Boxplot de População x Continente faceteado por ano", y = "População", x = "Continente") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+2.3 Grafar populacoes de cada continente vs ano. cada linha deve ter sua propria cor. Dica: preparar dados com group_by e summarize.
+
+```{r}
+df_gapminder %>%
+  group_by(continent, year) %>%
+  summarise(pop = sum(pop)) %>%
+  ggplot(aes(x = year, y = pop, color = continent)) +
+  geom_line() +
+  labs(title = "População ao longo dos anos", x = "Ano", y = "População") +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+
+2.4 Fazer 2.1,2.2,2.3 iterativos com plotly
+
+2.1 - interativo
+
+```{r}
+p2 <- df_gapminder %>%
+  filter(country %in% c("Argentina", "Chile", "Paraguay")) %>%
+  ggplot(aes(x = year, y = gdpPercap, color = country)) +
+  geom_line() +
+  labs(title = "PIB per capita ao longo dos anos", x = "Ano", y = "PIB per capita") +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal()
+ggplotly(p2)
+```
+
+
+2.2 - Interativo
+
+```{r}
+p <- df_gapminder %>%
+  group_by(continent, year) %>%
+  filter(continent != "Oceania",
+         year %in% c(1987, 1992, 1997, 2002)) %>%
+  ggplot(aes(x = continent, y = pop, fill = continent)) +
+  geom_boxplot() +
+  facet_wrap(~year) +
+  scale_y_log10() + #Necessario por causa da cauda longa
+  labs(title = "Boxplot de População x Continente faceteado por ano", y = "População", x = "Continente") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(legend.position = "none")
+ggplotly(p)
+```
+
+2.3 - Interativo
+
+```{r}
+p4 <- df_gapminder %>%
+  group_by(continent, year) %>%
+  summarise(pop = sum(pop)) %>%
+  ggplot(aes(x = year, y = pop, color = continent)) +
+  geom_line() +
+  labs(title = "População ao longo dos anos", x = "Ano", y = "População") +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal()
+ggplotly(p4)
+```
+
+
+# Dataset 3: Airbnb
+
+```{r}
+df_air_bnb <- read_csv("data/airbnb.csv")
+df_air_bnb %>% glimpse
+```
+
+3.1 Fazer histograma de preços só de apartamentos com escala horiz. logaritmica, com cor interior vermelha, e 20 bins.
+
+```{r}
+df_air_bnb %>%
+  filter(categoria == "apt") %>%
+  ggplot(aes(x = price)) +
+  geom_histogram(bins = 20, fill = "red") +
+  scale_x_log10() +
+  labs(title = "Histograma de apartamentos", x = "Preço", y = "Quantidade") +
+  theme_minimal()
+```
+
+3.2 Fazer histograma de preços para os tres tipos de apartamento (com transparencia e escala horiz log) faceteado por cafe da manha (brk)
+
+```{r}
+df_air_bnb %>%
+  ggplot(aes(x = price, fill = categoria)) +
+  geom_histogram(bins = 20, alpha = .6) +
+  facet_wrap(~brk) +
+  scale_x_log10() +
+  labs(title = "Histograma de categoria de imoveis faceteado por café da manhã", x = "Preço", y = "Quantidade") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+3.3 Fazer um ridge plot para categoria "apt" com esc. horiz. log, com cada ridge correspondendo a cafe da manha (brk)
+
+```{r}
+df_air_bnb %>%
+  filter(categoria == "apt") %>%
+  ggplot(aes(x = price, y = brk, fill = brk)) +
+  geom_density_ridges(alpha=.5) +
+  scale_x_log10() +
+  labs(title = "Rigde plot de apartamentos", x = "Preço", y = "Quantidade") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+# Dataset 4: salaries 
+
+4.0 Carregar a tabela "salaries.csv" no diretorio "data", criando `df_salaries`.
+
+```{r}
+df_salaries <- read_csv("data/salaries.csv")
+df_salaries %>% glimpse
+```
+
+4.1 Fazer boxplot de salarios vs sexo. nao usar escala logaritmica. colocar notch no boxplot, e colorir (fill) com o sexo.
+
+```{r}
+df_salaries %>%
+  group_by(sex) %>%
+  ggplot(aes(x = sex, y = salary)) +
+  geom_boxplot(aes(fill = sex), notch = T) +
+  labs(title = "BoxPlot Salarios x Sexo", x = "Sexo", y = "Salario") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+4.2 Grafico frequencial de barras dos ranks
+
+```{r}
+df_salaries %>%
+  group_by(rank) %>%
+  ggplot(aes(x = rank)) +
+  geom_bar(aes(fill = rank)) +
+  labs(title = "Numero de professores por rank", x = "Rank", y = "Quantidade") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+4.3 Fazer um diagrama de dispersao entre salario vs yrs.since.phd? existe alguma correlacao?
+
+A chance de encontrar pessoas com salarios mais alto aumenta junto com o tempo desde o phd da pessoa.
+```{r}
+df_salaries %>%
+  ggplot(aes(x = yrs.since.phd, y = salary)) +
+  geom_point() +
+  labs(title = "Dispersão Salario x Anos desde o PHD", x = "Anos desde o PHD", y = "Salario") +
+  theme_minimal()
+```
+
+

@@ -1,0 +1,200 @@
+---
+title: "PUC MDT Data Science Aula 10"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+```
+
+# Parte 1: Emails
+
+Lê conectividade (arestas)
+
+```{r}
+df_emails <- read_csv("data/email_edges.csv",col_types="iii")
+```
+
+Converte para objeto "tidgraph"
+
+```{r}
+gr_emails <- df_emails %>%
+  as_tbl_graph()
+gr_emails
+```
+
+
+Quais são os nomes dos nós? (V=vertices)
+
+Quais arestas? (E=edges)
+
+```{r}
+E(gr_emails)
+```
+
+Desenha
+
+```{r}
+gr_emails %>% 
+  ggraph(layout = 'graphopt') + 
+  geom_edge_link() +
+  geom_node_point(size = 5)
+```
+
+Desenha com outro layout. Layouts disponíveis: star, circle, grid, sphere, kk, fr, mds, lgl.
+
+```{r}
+gr_emails %>% 
+  ggraph(layout = 'fr') + 
+  geom_edge_link(arrow = arrow(length = unit(3, 'mm')), 
+                 end_cap = circle(3, 'mm')) + 
+  geom_node_point(size = 5)
+```
+
+Lê info sobre funcionários
+
+```{r}
+df_emails_users <- read_csv("data/email_nodes.csv",
+                            col_types="iccc")
+df_emails_users
+```
+
+```{r}
+V(gr_emails)$name
+```
+
+Faz lookup para atribuir nomes dos funcionarios na ordem q os nós foram criados.
+
+```{r}
+df_lookup <- tibble(id=V(gr_emails)$name %>% as.integer) %>%
+  left_join(df_emails_users)
+df_lookup
+```
+
+
+```{r}
+V(gr_emails)
+```
+
+Atribui caracteristicas dos usuarios aos vertices na ordem correta
+
+```{r}
+V(gr_emails)$nome <- df_lookup$name
+V(gr_emails)$sex <- df_lookup$sex
+V(gr_emails)$cargo <- df_lookup$cargo
+```
+
+Desenha o grafo com nomes nos nós:
+
+```{r}
+gr_emails %>%
+  ggraph(layout = 'fr') + 
+  geom_edge_fan(aes(start_cap = label_rect(node1.name),
+                     end_cap = label_rect(node2.name)), 
+                 arrow = arrow(length = unit(4, 'mm'))) +
+  geom_node_point(aes(color=sex),size=10) +
+  geom_node_text(aes(label = nome)) +
+  theme(legend.position = "none")
+```
+
+Rotula arestas com numero de emails trocados
+
+```{r}
+gr_emails %>%
+ggraph(layout = 'circle') + 
+    geom_edge_fan(aes(label = emails), 
+                strength=2,
+                angle_calc = 'along',
+                label_dodge = unit(2.5, 'mm'),
+                arrow = arrow(length = unit(3, 'mm')), 
+                end_cap = circle(8, 'mm')) + 
+  geom_node_point(aes(color=sex),size=20) +
+  geom_node_text(aes(label = nome)) +
+  theme(legend.position = "none")
+```
+
+```{r}
+gr_emails %>%
+ggraph(layout = 'circle') + 
+    geom_edge_fan(aes(label = emails), 
+                strength=2,
+                angle_calc = 'along',
+                label_dodge = unit(2.5, 'mm'),
+                arrow = arrow(length = unit(3, 'mm')), 
+                end_cap = circle(8, 'mm')) + 
+  geom_node_point(aes(color=sex),size=20) +
+  geom_node_text(aes(label = str_c(nome,"\n",cargo))) +
+  theme(legend.position = "none")
+```
+
+```{r}
+gr_emails %>%
+ggraph(layout = 'circle') + 
+    geom_edge_fan(aes(edge_width=emails), 
+                strength=2,
+                angle_calc = 'along',
+                label_dodge = unit(2.5, 'mm'),
+                arrow = arrow(length = unit(3, 'mm')), 
+                end_cap = circle(8, 'mm')) + 
+  geom_node_point(aes(color=sex),size=20) +
+  geom_node_text(aes(label = nome))
+```
+
+# Parte 2: Grupamento e centralidade
+
+```{r}
+gr_emails_grouped <- gr_emails %>%
+  mutate(group = group_edge_betweenness() %>% as.factor,
+         centrality = centrality_betweenness())
+```
+
+```{r}
+V(gr_emails_grouped)$group
+```
+
+```{r}
+V(gr_emails_grouped)$centrality
+```
+
+```{r}
+gr_emails_grouped %>%
+  ggraph(layout="kk") +
+  geom_edge_link() +
+  geom_node_point(aes(color=group,size=centrality))
+```
+
+## Enron
+
+Dados da Enron, [fonte](http://networkrepository.com/email.php)
+
+```{r}
+df_enron <- read_csv("data/email_enron2.csv", col_types = "iii")
+df_enron
+```
+
+Detecta se grafo é diretivo ou bi-direcional
+
+```{r}
+df_enron %>%
+  semi_join(df_enron,
+            by=c(from="to",to="from"))
+```
+
+Converte data frame para grafo nao-direcional
+
+```{r}
+gr_enron <- df_enron %>%
+  as_tbl_graph(directed=F)
+gr_enron
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,187 @@
+---
+title: "Untitled"
+author: "Thomás Jagoda"
+date: "11/06/2020"
+output: html_document
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(networkD3)
+library(rvest)
+library(purrr)
+library(igraph)
+library(tidygraph)
+library(geosphere)
+library(ggraph)
+library(geobr)
+library(sf)
+```
+
+
+```{r}
+
+# Do the same for 2017 and 2018 and return tables in a list
+
+list_complete_dfs <- c(`2017`="2017",`2018`="2018") %>% purrr::map(~{
+
+  list_bi <- read_html(str_glue("data_bi/power_bi_{.x}.html"), encoding="ISO-8859-1")
+  
+  only_table_elements <- list_bi %>% html_nodes(".pivotTable")
+  
+  # Get row and column names
+  row_names <- only_table_elements %>% 
+    html_nodes(" div.rowHeaders > div > div > div") %>% 
+    html_attr("title")
+  
+  column_names <- only_table_elements %>% 
+    html_nodes(" div.columnHeaders > div > div > div") %>% 
+    html_attr("title")
+  
+  
+  # Now, to get the cells content:
+  cells_content <- only_table_elements %>% html_nodes("div.bodyCells > div:first-child")
+  
+  
+  # Table is separated into quadrants:
+  # Get each quadrant's html structure
+  list_quadrants <- 1:6 %>% purrr::map(~xml_child(cells_content[[1]], .x))
+  
+  # Quandrant scheme: (order in list: Q11, Q21, Q12, Q22, Q13, Q23)
+  #   Q11     Q12    Q13
+  #
+  #   Q21     Q22    Q23
+  
+  # get the df corrresponding to each quadrant
+  list_quadrants_df <- 1:length(list_quadrants) %>% purrr::map(~{
+    nth_col_index <- 1
+    
+    
+    while(T) {
+      nth_col <- try(xml_child(list_quadrants[[.x]], nth_col_index) %>% 
+                       html_nodes("div") %>% 
+                       html_attr("title"), silent=T)
+      
+      if(class(nth_col)=="try-error"){
+        break
+      } 
+      
+      col_name <- str_glue("col_{nth_col_index}")
+      if(nth_col_index==1){
+        df_temp <- tibble({{col_name}}:=nth_col)
+      } else{
+        df_temp <- df_temp %>% mutate({{col_name}}:=nth_col)
+      }
+      nth_col_index <- nth_col_index + 1
+      
+    }
+    
+    df_temp
+    
+  })
+  
+  
+  # Bind equadrants first rowise, then columnwise
+  df_complete <- c(1,3,5) %>% map_dfc(~{
+    list_quadrants_df[[.x]] %>% 
+      bind_rows(list_quadrants_df[[.x+1]])
+  })
+  
+  # Set column real names
+  colnames(df_complete) <- column_names
+  df_complete %>%
+    mutate(from=row_names) %>%
+    select(from, everything())
+  
+})
+
+# write each df into a separate .csv
+ names(list_complete_dfs) %>% 
+   walk(~write_csv(list_complete_dfs[[.x]], str_glue("data_bi/balanca_interestadual_{.x}.csv")))
+
+
+
+```
+
+
+
+```{r}
+
+
+
+df_from_to <- names(list_complete_dfs) %>% map_dfr(~{
+  
+  list_complete_dfs[[.x]] %>%
+    select(-Total) %>%
+    pivot_longer(AC:TO, names_to="to", values_to="weight") %>%
+    filter(weight>0) %>%
+    mutate(ano=.x,
+           weight=weight %>% str_remove_all(fixed(".")) %>%
+             str_replace(fixed(","), ".") %>% as.double()/1e6 )
+  
+}) %>% mutate(weight=as.double(weight))
+
+
+df_from_to_2017 <-   list_complete_dfs$`2017` %>%
+    select(-Total) %>%
+    pivot_longer(AC:TO, names_to="to", values_to="weight") %>%
+    filter(weight>0) %>%
+    mutate(ano=2017,
+           weight=weight %>% str_remove_all(fixed(".")) %>%
+             str_replace(fixed(","), ".") %>% as.double()/1e6 )
+
+
+df_from_to  %>% write_rds("data_bi/df_to_from.rds")
+
+net_centrality <- as_tbl_graph(df_from_to_2017, directed=T) %>%
+    mutate(centrality = centrality_betweenness()) %>% 
+  as_tibble()
+
+
+```
+
+
+
+
+```{r}
+
+nodes <- read_csv("data_sb/Dataset1-Media-Example-NODES.csv")
+links <- read_csv("data_sb/Dataset1-Media-Example-EDGES.csv")
+
+capitais <- read_csv("data_bi/capitais_lat_lon.csv")
+
+nodes_capitais <- capitais  %>%
+  mutate(id=sprintf("s%.2d",(1:(nrow(.))))) %>% 
+  select(id, estado, regiao)
+
+df_d3 <- df_from_to_2017  %>%
+  #filter(weight>500) %>%
+  left_join(nodes_capitais%>%rename(id_from=id),by=c(from = "estado")) %>%
+  left_join(nodes_capitais %>% rename(id_to=id), by=c(to = "estado"))  %>%
+  select(id_from, id_to, everything())
+
+
+links_d3 <- tibble(from=as.integer(factor(df_d3$id_from))-1L,
+                       to=as.integer(factor(df_d3$id_to))-1L,
+                   weight=df_d3$weight/1000) 
+nodes_d3 <- nodes_capitais %>%
+  left_join(net_centrality, by=c(estado="name")) %>%
+  mutate(idn=factor(nodes_capitais$estado, levels=nodes_capitais$estado)) %>%
+  select(idn, id, everything()) 
+
+
+forceNetwork(Links = links_d3, Nodes = nodes_d3, Source="from", Target="to",
+             NodeID = "idn", # must be first column in Nodes df
+             Group = "regiao", opacity=1, zoom=T, legend=T, charge=-600,
+             Nodesize="centrality", Value="weight")
+
+
+```
+
+
+
+

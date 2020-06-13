@@ -1,0 +1,3 @@
+"0","V(gr_emails)$nome <- df_lookup$name"
+"0","V(gr_emails)$sex <- df_lookup$sex"
+"0","V(gr_emails)$cargo <- df_lookup$cargo"

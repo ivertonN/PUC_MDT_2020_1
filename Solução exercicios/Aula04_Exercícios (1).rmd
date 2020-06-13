@@ -1,0 +1,155 @@
+---
+title: "Aula 04 - Exercicios"
+output: html_document
+---
+
+## Exercícios: Criar os graficos com o arquivo de casos confirmados: data/covid19_confirmed.csv
+
+Tudo que estiver dentro do chunk após "#" é considerado comentário e não interfere no código.
+```{r}
+# Isto é um comentário.
+```
+
+# QUESTÕES
+1) italia vs data.
+2) italia e espanha vs data.
+3) italia e espanha logaritmico.
+4) 8 paises com o maior numero de casos confirmados.
+5) diários espanha.
+6) challenge: diários espanha e italia no mesmo grafico.
+7) challenge: espanha, italia, brasil, italia no mesmo gráfico, highlight italia e brasil.
+
+##Importando as bibliotecas
+```{r}
+library(tidyverse)
+```
+
+# Importando a tabela de dados confirmados do arquivo csv.
+```{r}
+df_covid_confirmed <- read_csv("data/covid19_confirmed.csv")
+```
+
+# Olhada na tabela df_covid_confirmed
+```{r}
+df_covid_confirmed %>% 
+  glimpse
+```
+
+Percebemos que esta tabela é identica a tabela df_covid_deaths utilizada anteriormente na aula. Exceto pela coluna $Value que neste caso identifica o número total de casos confirmados após cada dia.
+
+# Altera o nome da coluna "Value" para "confirmed" e o nome da coluna "Country/Region" para "Country".
+```{r}
+df_covid_confirmed_renamed <- df_covid_confirmed %>%
+  rename(Confirmed = Value, Country = `Country/Region`)
+```
+
+Agora que a tabela já está organizada como queremos, vamos para a Solução.
+
+
+
+## 1-Solução) italia vs data.
+
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>% #Selecionamos as colunas necessarias
+  filter(Country == "Italy") %>% #Filtramos por italia
+  ggplot(aes(x = Date, y = Confirmed)) + #criamos um grafico Confirmed x Date
+  geom_point(color = "blue") #selecionamos qual gráfico queremos mostrar e a cor.
+```
+
+
+
+## 2-Solução) italia e espanha vs data.
+
+Mesmo código da questão 1 com algumas modificações.
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>%
+  filter(Country %in% c("Italy", "Spain")) %>% #Filtramos por italia e Espanha
+  ggplot(aes(x = Date, y = Confirmed)) +
+  geom_point(aes(color = Country)) #color = Country é utilizado para plotar cada pais com uma cor diferente.
+```
+
+
+
+## 3-Solução) italia e espanha logaritmico.
+
+Mesmo código da questão 2 com algumas modificações.
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>%
+  filter(Country %in% c("Italy", "Spain")) %>%
+  filter(Confirmed > 0) %>% #Eliminamos os casos menores que zero pois iriam gerar um warning ao aplicar logaritmo.
+  ggplot(aes(x = Date, y = Confirmed)) +
+  geom_point(aes(color = Country)) +
+  scale_y_log10() #aplica o logaritmo na variável do eixo y
+```
+
+
+
+## 4-Solução) 8 paises com o maior numero de casos confirmados.
+
+Precisamos apenas do numero de casos de cada pais na ultima data registrada.
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>% #selecionamos as colunas necessarias
+  group_by(Country) %>% #Agrupamos por pais
+  filter(Date == max(Date)) %>% #filtramos a linha de cada pais pela maior data
+  ungroup() %>% #desagrupamos
+  arrange(desc(Confirmed)) %>% #ordenamos a coluna confirmed em ordem decrescente
+  head(8) %>% #Pegamos apenas os 8 com o maior numero de casos confirmados
+  mutate(Country = Country%>%fct_inorder%>%fct_rev) %>% #usado para ordenar no gráfico.
+  ggplot(aes(x = Country, y = Confirmed)) +
+  geom_col(aes(fill = Country)) + #usamos fill para preencher cada barra de acordo com o pais
+  coord_flip() #rodamos o grafico para facilitar a visualização
+```
+
+
+
+## 5-Solução) diários espanha.
+
+Similar a questão 1, porém com os casos diários(novos casos diários).
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>% #Selecionamos as colunas necessarias
+  filter(Country == "Spain") %>% #Filtramos por Espanha
+  arrange(Date) %>% #ordena as datas em ordem crescente
+  mutate(Confirmed_previous_day = lag(Confirmed))%>%#Crio coluna com confirmados no dia anterior
+  mutate(Confirmed_daily = Confirmed - Confirmed_previous_day)%>% #Crio coluna com casos diários
+  tail(-1) %>% #Retiramos a primeira linha da tabela para não gerar um warning no gráfico.
+  ggplot(aes(x = Date, y = Confirmed_daily)) + #criamos um grafico Confirmed_daily x Date
+  geom_point(color = "blue") #selecionamos qual gráfico queremos mostrar e a cor.
+```
+
+
+
+## 6-Solução) challenge: diários espanha e italia no mesmo grafico.
+
+Similar a questão 5, com algumas modificações.
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>% #Selecionamos as colunas necessarias
+  filter(Country %in% c("Spain", "Italy")) %>% #Filtramos por Espanha e Itália
+  group_by(Country) %>% #agrupamos por country antes de realizar as operações
+  arrange(Date) %>% #ordena as datas em ordem crescente
+  mutate(Confirmed_previous_day = lag(Confirmed))%>%#Crio coluna com confirmados no dia anterior
+  mutate(Confirmed_daily = Confirmed - Confirmed_previous_day)%>% #Crio coluna com casos diários
+  filter(row_number() > 1) %>% #Retiramos a primeira linha da tabela para não gerar um warning no gráfico.
+  ggplot(aes(x = Date, y = Confirmed_daily, color = Country)) + #criamos um grafico Confirmed_daily x Date
+  geom_line() #escolhemos o grafico de linha
+```
+
+
+
+## 7-Solução) challenge: espanha, italia, brasil no mesmo gráfico, highlight italia e brasil.
+
+Similar a questão 1, porém com modificações.
+```{r}
+df_covid_confirmed_renamed %>%
+  select(Country, Date, Confirmed) %>% #Selecionamos as colunas necessarias
+  filter(Country %in% c("Spain", "Italy", "Brazil")) %>% #Filtramos por italia
+  ggplot(aes(x = Date, y = Confirmed)) + #criamos um grafico Confirmed x Date
+  geom_line(aes(color = Country)) + #Selecionamos grafico de linha e colorimos de acordo com country.
+  gghighlight::gghighlight(Country %in% c("Italy", "Brazil"), use_group_by = F) #highlight em Italia e Brasil
+```
+

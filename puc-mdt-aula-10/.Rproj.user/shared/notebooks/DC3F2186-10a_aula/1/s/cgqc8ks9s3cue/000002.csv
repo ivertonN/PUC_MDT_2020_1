@@ -1,0 +1,5 @@
+"0","df_lookup <- tibble(id=V(gr_emails)$name %>% as.integer) %>%"
+"0","  left_join(df_emails_users)"
+"2","Joining, by = ""id""
+"
+"0","df_lookup"

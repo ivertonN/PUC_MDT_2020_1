@@ -1,0 +1,3 @@
+"0","df_emails_users <- read_csv(""data/email_nodes.csv"","
+"0","                            col_types=""iccc"")"
+"0","df_emails_users"

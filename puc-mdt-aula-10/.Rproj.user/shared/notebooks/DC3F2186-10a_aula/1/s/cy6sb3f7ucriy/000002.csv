@@ -1,0 +1,4 @@
+"0","gr_emails_grouped %>%"
+"0","  ggraph(layout=""kk"") +"
+"0","  geom_edge_link() +"
+"0","  geom_node_point(aes(color=group,size=centrality))"

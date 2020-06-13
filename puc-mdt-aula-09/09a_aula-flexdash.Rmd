@@ -1,0 +1,92 @@
+---
+title: "PUC MDT - Dashboard - Aula 09"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+
+```{r global, include=FALSE}
+library(tidyverse)
+library(flexdashboard)
+
+knitr::opts_chunk$set(cache=F)
+
+df_crimes <- read_csv2("data/crimes_2010_2020.zip")
+
+ano_min <- df_crimes$ano %>% min
+ano_max <- df_crimes$ano %>% max
+
+df_crimes_total <- df_crimes$contagem %>% sum(na.rm=T)
+df_roubos_total <- df_crimes %>% filter(grupo=="Roubos") %>% pull(contagem) %>% sum(na.rm=T)
+df_crimes_ano_max <- df_crimes %>% filter(ano==ano_max) %>% pull(contagem) %>% sum(na.rm=T)
+```
+
+# Aba Principal
+
+## Row 1
+
+### Crimes de `r ano_min` a `r ano_max` (Milhões)
+
+<!-- ícones em: https://fontawesome.com/v4.7.0/icons/ -->
+
+```{r,message=F}
+valueBox(round(df_crimes_total/10^6,1), icon = "fa-bomb")
+```
+
+### Crimes em `r ano_max` (Mil)
+
+```{r,message=F}
+valueBox(round(df_crimes_ano_max/10^3,1), icon = "fa-exclamation-circle",
+         color="purple")
+```
+
+### Roubos de `r ano_min` a `r ano_max` (Milhões)
+
+<!-- ícones em: https://fontawesome.com/v4.7.0/icons/ -->
+
+```{r,message=F}
+valueBox(round(df_roubos_total/10^6,1), icon = "fa-bomb",
+         color="red")
+```
+
+
+## Row 2
+
+### Crimes por Ano
+
+```{r}
+df_crimes %>%
+  mutate(ano=as.character(ano)) %>%
+  group_by(ano) %>%
+  summarize(contagem=sum(contagem,na.rm=T)) %>%
+  ggplot(aes(x=ano, y=contagem, fill=ano)) +
+  geom_col() +
+  theme(legend.position = "none")
+```
+
+### Crimes Por Mês, todos os anos
+
+```{r,message=F}
+df_crimes %>%
+  mutate(mes=as.integer(mes),ano=as.character(ano)) %>%
+  group_by(ano,mes) %>%
+  summarize(contagem=sum(contagem)) %>%
+  ggplot(aes(x=mes, y=contagem, group=ano,color=ano)) +
+  geom_line(size=2.) +
+  scale_x_continuous(breaks=1:12,
+                     labels=c("jan","fev","mar",
+                              "abr","mai","jun",
+                              "jul","ago","set",
+                              "out","nov","dez")) + 
+  theme_minimal()
+```
+
+# Exercicios 1
+
+1. Adicionar um 4o valueBox na primeira fila com o numero de furtos (coluna `grupo`). Nota: escolher [icone novo](https://fontawesome.com/v4.7.0/icons/), mudar a cor do valueBox
+1. Adicionar mais um grafico de barras a segunda fila, mostrando total de roubos por Regiao
+
+# Exercicios 2
+
+1. Adicionar a 3a fileira, um grafico de barras com a contagem de cada grupo de crime no municipio do Rio de Janeiro. ou seja, eixo x: grupo de crime, eixo y: contagem de crimes.
+1. Adicionar a 3a fileira, um grafico mostrando a contagem dos grupos de crime por mes no ano de 2019 no municipo do rio de janeiro. ou seja, eixo x: mes, eixo y: contagem, cores das linhas: grupo de crime.

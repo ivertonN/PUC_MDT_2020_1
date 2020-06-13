@@ -1,0 +1,6 @@
+"0","#Paleta de cores utilizada para parametro group"
+"0","group_pal <- colorFactor("
+"0","  palette = ""Set1"","
+"0","  domain = df_airports_grouped$group"
+"0",")"
+"0",""

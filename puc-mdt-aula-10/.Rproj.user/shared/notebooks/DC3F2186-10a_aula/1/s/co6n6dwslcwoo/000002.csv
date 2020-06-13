@@ -1,0 +1,2 @@
+"0","df_enron <- read_csv(""data/email_enron2.csv"", col_types = ""iii"")"
+"0","df_enron"

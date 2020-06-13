@@ -1,0 +1,4 @@
+"0","checkboxGroupInput(""grupo"", ""Grupo"", choices=group_uniques, selected = group_uniques)"
+"2","Error in checkboxGroupInput(""grupo"", ""Grupo"", choices = group_uniques,  : 
+  não foi possível encontrar a função ""checkboxGroupInput""
+"

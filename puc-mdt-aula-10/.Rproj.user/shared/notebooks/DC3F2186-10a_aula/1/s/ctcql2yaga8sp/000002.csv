@@ -1,0 +1,8 @@
+"0","gr_emails %>%"
+"0","  ggraph(layout = 'fr') + "
+"0","  geom_edge_fan(aes(start_cap = label_rect(node1.name),"
+"0","                     end_cap = label_rect(node2.name)), "
+"0","                 arrow = arrow(length = unit(4, 'mm'))) +"
+"0","  geom_node_point(aes(color=sex),size=10) +"
+"0","  geom_node_text(aes(label = nome)) +"
+"0","  theme(legend.position = ""none"")"

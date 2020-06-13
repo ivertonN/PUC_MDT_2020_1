@@ -1,0 +1,203 @@
+---
+title: "MP PDT - Data Science - Aula 06 - Exercícios"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+# Exercicios I
+
+Le arquivo com `read_lines` num vetor de strings
+
+```{r}
+livro <- read_lines("data/machado_de_assis_dom_casmurro.txt")
+```
+
+1.1) Quantas linhas tem este arquivo
+```{r}
+livro %>% 
+  length()
+```
+
+1.2) Usando o R (nao editar a mão!) cortar livro só mantendo os capitulos V até X.
+```{r}
+livro_cortado_V_X <- livro[
+  which(livro == "V"):
+    which(livro == "X")-1
+]
+```
+
+1.3) Quantas linhas tem este novo livro cortado?
+```{r}
+livro_cortado_V_X %>% 
+  length()
+```
+
+1.4) Quantas linhas vazias contém o livro cortado?
+```{r}
+sum(livro_cortado_V_X=="")
+```
+
+1.5) Em qual linha aparece a palavra "guilhotina"? (usar which + str_detect)
+```{r}
+which(livro_cortado_V_X %>% 
+        str_detect("guilhotina"))
+```
+
+1.6) Salvar resultado em "data_out/livro_cortado_V_a_X.txt"
+```{r}
+livro_cortado_V_X %>% 
+  write_lines("data_out/livro_cortado_V_a_X.txt")
+```
+
+
+# Exercicios II
+
+considerando
+
+```{r}
+minhas_frases <- c("Tão depressa vi desapparecer o  aggregado no corredor deixei o",
+                   "esconderijo e   corri á varanda do fundo",
+                   "Não quiz saber de lagrimas nem da  causa que",
+                   "as fazia verter       a minha mãe",
+                   "A causa  eram provavelmente   os seus projectos ecclesiasticos",
+                   "e a occasião destes é a  que vou dizer")
+```
+
+2.1) reportar o numero de frases
+```{r}
+minhas_frases %>% 
+  length
+```
+
+2.2) reportar o numero de palavras por frase
+```{r}
+minhas_frases %>% 
+  str_split(pattern = " +") %>%
+  map_int(length)
+```
+
+2.3) reportar o numero total de palavras (soma de palavras de todas as frase)
+```{r}
+minhas_frases %>% 
+  str_split(" +") %>%
+  map_int(length) %>%
+  sum()
+```
+
+2.4) grafar as 6 palavras mais frequentes.
+```{r}
+minhas_frases_palavras <- minhas_frases %>% 
+  str_split(" +") %>%
+  unlist()
+
+df_palavras <- tibble(palavra = minhas_frases_palavras,
+       indice = 1:length(palavra)) %>% select(indice, palavra)
+
+df_palavras %>% 
+  count(palavra, sort = T) %>%
+  head(6) %>%
+  mutate(palavra = palavra %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(palavra,n,fill=palavra)) +
+  geom_col() +
+  theme(legend.position="none")
+  
+```
+
+2.5) reportar a palavra mais longa
+```{r}
+df_palavras %>%
+  mutate(palavra_comprimento = str_length(palavra)) %>%
+  top_n(1, palavra_comprimento)
+```
+
+
+# Exercicios III
+
+3.1) Cortar livro só no conteúdo do capitulo 33 = XXXIII (após o título)
+```{r}
+livro_cortado_cap33 <- livro[
+  which(livro == "XXXIII") + 3: 
+    which(livro == "XXXIV")-1]
+```
+
+3.2) Reportar grafico dos 8 termos (em minusculas, sem símbolos de pontuação) mais frequentes
+```{r}
+palavras_cap33_all <- livro_cortado_cap33 %>% 
+  str_to_lower() %>%
+  str_split("[^[:alpha:]]+") %>%
+  unlist()
+
+palavras_cap33 <- palavras_cap33_all[palavras_cap33_all!=""]
+
+df_palavras_cap33 <- tibble(palavras = palavras_cap33,
+                            indice = 1:length(palavras))
+
+palavras_cap33_frequencia <- df_palavras_cap33 %>%
+  count(palavras, sort = T) %>%
+  head(7)
+palavras_cap33_frequencia
+```
+
+3.3) Gerar wordcloud das palavras neste capitulo
+
+```{r}
+wc_cap33_no_sw <- wordcloud2::wordcloud2(palavras_cap33_frequencia)
+wc_cap33_no_sw
+```
+
+Adicionalmente, vamos retirar as stop_words após lemmatização
+```{r}
+library(udpipe)
+model <- udpipe_load_model(file = "portuguese-bosque-ud-2.4-190531.udpipe")
+```
+
+```{r}
+txt_cap33 <- livro_cortado_cap33 %>% str_c(collapse=" ")
+```
+
+Roda algoritmo de NLP
+
+```{r}
+df_cap33_annotated <- udpipe_annotate(model, x = txt_cap33) %>%
+  as.data.frame
+df_cap33_annotated %>% select(token_id:upos)
+```
+
+Conta lemmas mais frequentes, sem "--" ou characteres nao alfabeticos
+
+```{r}
+df_cap33_lemma_counts <- df_cap33_annotated %>%
+  mutate(lemma=lemma%>%
+           str_to_lower%>%
+           str_remove_all(fixed("--"))%>%
+           str_remove_all("[^[:alpha:]]")) %>%
+  count(lemma,sort=T) %>%
+  filter(!is.na(lemma),lemma!="") %>%
+  rename(palavra=lemma)
+df_cap33_lemma_counts
+```
+
+Lê stopwords
+
+```{r}
+df_sw <- read_csv("data/casmurro_stopwords.csv")
+```
+
+Remove stopwords
+
+```{r}
+df_cap33_lemma_counts_no_sw <- df_cap33_lemma_counts %>%
+  anti_join(df_sw) %>%
+  head(7)
+df_cap33_lemma_counts_no_sw
+```
+
+wordcloud sem stop_words.
+```{r}
+wc_cap33_no_sw <- wordcloud2::wordcloud2(df_cap33_lemma_counts_no_sw)
+wc_cap33_no_sw
+```
+

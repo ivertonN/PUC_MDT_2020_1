@@ -1,0 +1,104 @@
+---
+title: "Visualização de Crimes por AISP no Rio de Janeiro"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(leaflet)
+#library(shiny)
+library(sf)
+
+df_aisp <- read_csv2("data/AispPorRegiao.csv")
+df_cisp_aisp <- read_csv2("data/CorrespondenciaCispAisp.csv") %>%
+  mutate_all(as.integer)
+df_crimes <- read_rds("data/crimes.rds") %>%
+  left_join(df_cisp_aisp, by=c("CISP"="circ", "ano"="vano", "mes"="mes"))
+
+df_aisp_cisp_lookup <- df_aisp %>%
+  left_join(df_cisp_aisp, by=c("aisp","mes", "vano")) %>%
+  filter(regiao_nome=="Capital") %>% 
+  filter(vano==2020) %>%
+  select(aisp, circ) %>%
+  rename(cisp=circ)
+
+vec_aisp_capital <- df_aisp %>%
+  filter(regiao_nome=="Capital") %>% 
+  filter(vano==2020) %>%
+  pull(as.integer(aisp)) %>%
+  unique()
+
+#sf_deleg <- st_read("data/shape_limites_seg/lm_dp_2019.shp")
+#sf_deleg_simple <- sf_deleg %>% rmapshaper::ms_simplify()
+#sf_deleg_simple %>% #st_write("data/shape_limites_seg_simple/lm_dp_2019_simple.shp")
+sf_deleg <- st_read("data/shape_limites_seg_simple/lm_dp_2019_simple.shp")
+
+sf_deleg_capital <- sf_deleg %>% 
+  filter(aisp %in% vec_aisp_capital)
+
+df_crimes_capital <- df_crimes %>% 
+  filter(aisp %in% vec_aisp_capital) %>%
+  group_by(aisp,grupo,ano) %>%
+  #group_by(aisp, ano) %>%
+  summarise(contagem=sum(contagem, na.rm=T)) %>%
+  ungroup()
+
+grupo_crimes <- df_crimes_capital %>% pull(grupo) %>% unique()
+
+sf_plot <- df_crimes_capital %>% 
+  left_join(sf_deleg_capital, by="aisp") %>% 
+  st_as_sf() # %>%
+  # rmapshaper::ms_simplify()
+  # st_simplify(dTolerance=.00025,preserveTopology=T)
+```
+
+## Column {.sidebar}
+
+```{r}
+sliderInput("ano", "Ano", min=2007, max=2020, value=c(2007,2020),  sep="")
+checkboxGroupInput("grupo", "Grupo", choices=grupo_crimes, selected = grupo_crimes[1])
+```
+
+## Column {data-width=650}
+
+### 
+
+```{r}
+renderLeaflet({
+  
+  sf_plot_filtered <- sf_plot %>%
+    filter(between(ano, as.integer(input$ano[1]), as.integer(input$ano[2]))) %>%
+    filter(grupo %in% input$grupo) %>%
+    group_by(aisp) %>%
+    summarise(contagem=sum(contagem)) %>%
+    ungroup() %>%
+    st_as_sf()
+
+  
+ pop <- str_glue("<b>AISP:</b> {sf_plot_filtered$aisp} <br/>
+                <b>Ocorrências:</b> {sf_plot_filtered$contagem} <br/>")
+  
+ fill <- colorQuantile("YlOrRd", sf_plot_filtered$contagem, n=7)
+  
+  base_map <- sf_plot_filtered %>%
+    leaflet() %>%
+    addTiles()  %>% 
+    setView(lat=-22.93, lng=-43.45 , zoom=10.5) %>%
+    addProviderTiles("Esri.WorldImagery") %>%
+    addPolygons(color = "lightblue", weight = 1, smoothFactor = 0.5,
+                opacity = 1.0, fillOpacity = 0.6,
+                fillColor= ~fill(contagem),
+                popup = pop,
+                highlightOptions = highlightOptions(color = "white", weight = 2,
+                                                    bringToFront = TRUE))
+  
+
+  base_map
+})
+```
+

@@ -1,0 +1,82 @@
+---
+title: "Flights"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(geosphere)
+library(leaflet)
+library(tidygraph)
+library(igraph)
+```
+
+# Flights / map geosphere
+
+```{r message = F}
+df_airports_grouped <- read_rds("data_sb/df_airports_grouped.rds")
+df_flights_grouped <- read_rds("data_sb/df_flights_grouped.rds")
+```
+
+
+```{r}
+#Paleta de cores utilizada para parametro group
+group_pal <- colorFactor(
+  palette = "Set1",
+  domain = df_airports_grouped$group
+)
+
+```
+
+```{r}
+map_flights <-
+  leaflet( options = leafletOptions( minZoom = 1) ) %>%
+  setMaxBounds( lng1 = -180
+                , lat1 = -89.98155760646617
+                , lng2 = 180
+                , lat2 = 89.99346179538875 ) %>%
+    addProviderTiles(providers$CartoDB.DarkMatter) %>%
+    addPolygons(data = maps::map("usa", plot = F), fillColor = "blue",
+  opacity = .1)
+
+#Paleta de cores utilizada para edge 
+col_1 <- adjustcolor("orange red", alpha=0.4)
+col_2 <- adjustcolor("orange", alpha=0.4)
+edge_pal <- colorRampPalette(c(col_1, col_2), alpha = TRUE)
+edge_col <- edge_pal(100)
+
+for(i in 1:nrow(df_flights_grouped))  {
+  edge_ind <- df_flights_grouped %>% pull(curved_line_color_ind) %>% `[[`(i)
+  curved_line <- df_flights_grouped %>% pull(curved_line) %>% `[[`(i)
+  
+  #adiciona cada linha curva
+  map_flights <- addPolylines(map_flights, data = curved_line
+                              , color = edge_col[edge_ind]
+                              , weight = edge_ind/30
+                              , opacity = 1)
+}
+
+for(i in 1:nrow(df_airports_grouped)) {
+  group_id <- df_airports_grouped %>% pull(group) %>% `[[`(i)
+  
+  map_flights <-  addCircles(map_flights, data = df_airports_grouped[i,]
+                             , lng = ~longitude
+                             , lat = ~latitude
+                             , group = as.character(group_id)
+                             , color = ~group_pal(group_id)
+                             , popup = str_glue("<b>Lat:</b> {df_airports_grouped[i,]$latitude} <br/>
+                <b>Lon:</b> {df_airports_grouped[i,]$longitude} <br/>
+                <b>Airport:</b> {df_airports_grouped[i,]$Label} <br/>")
+                             , weight = ~sqrt(sqrt(centrality))*10
+                             , opacity = .8
+                             ,highlightOptions = highlightOptions(color = "yellow", bringToFront = TRUE))
+}
+
+map_flights
+```
+
+

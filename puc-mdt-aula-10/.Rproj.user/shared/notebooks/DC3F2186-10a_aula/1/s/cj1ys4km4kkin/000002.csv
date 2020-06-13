@@ -1,0 +1,23 @@
+"0","gr_emails_grouped <- gr_emails %>%"
+"0","  mutate(group = group_edge_betweenness() %>% as.factor,"
+"0","         centrality = centrality_betweenness())"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"
+"2","Modularity is implemented for undirected graphs only.
+"

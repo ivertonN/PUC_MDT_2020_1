@@ -1,0 +1,224 @@
+---
+title: "Aula 05 - Data Science - Exericios - Ministério Público"
+output: html_document
+---
+
+Ctrl-Alt-I cria um chunk
+
+```{r}
+
+```
+
+Ctrl-Shift-ENTER executa o chunk
+
+
+
+
+Carregar bibliotecas
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+
+Carrega Arquivos com `read_csv2`: clientes, produtos, compras
+
+```{r}
+df_clientes <- read_csv2("data/clientes_final.csv")
+df_produtos <- read_csv2("data/produtos_final.csv")
+df_compras <- read_csv2("data/compras_final.csv")
+```
+
+
+Função utilizada durante a aula para converter a coluna 'Valor', de string para numeric.
+
+```{r}
+converte_valor <- function(valor) {
+  valor %>%
+    str_sub(start=4) %>%
+    str_replace(fixed(","),".") %>%
+    as.double()
+}
+```
+
+
+# Exercicios 1:
+
+1.1) clientes: 4 nomes mais comuns por sexo
+
+```{r}
+df_clientes %>%
+  #Agrupamos por Sexo (agora as operações serão realizadas dentro de cada sexo)
+  group_by(Sexo) %>%
+  #Faz a frequencia de Nome e ordena começando pelo mais frequente.
+  count(Nome, sort = T) %>%
+  #Pegamos os top 4 elementos.
+  top_n(4) %>%
+  #desagrupamos
+  ungroup() %>%
+  #Ordenamos por sexo para melhorar visualização.
+  arrange(Sexo)
+```
+
+
+1.2) clientes: qual a idade média, maxima e minima dos clientes?
+
+```{r}
+df_clientes %>%
+  #criamos uma coluna com as idades.
+  mutate(idade=as.integer((today()-nascimento)/365.)) %>% 
+  #utilizamos summarize para resumir o data frame nas variaveis de interesse.
+  summarize(idade_min = min(idade),
+            idade_media = mean(idade),
+            idade_max = max(idade)) 
+
+#Podemos utilizar também summary para ter um resumo rapido.
+```
+
+
+1.3) produtos: quais sao os 8 livros mais caros
+
+Precisamos primeiro converter o valor para numerico
+```{r}
+df_produtos %>%
+  #converte a coluna Valor para tipo numerico
+  mutate(ValorNum = converte_valor(Valor)) %>% 
+  #ordena coluna 'Valor'
+  arrange(desc(ValorNum)) %>% 
+  #Pega as primeiras 8 linhas
+  head(8) %>% 
+  #seleciona as colunas de interesse
+  select(Titulo, ValorNum)
+```
+
+
+
+1.4) compras: tabela dos 8 ids de cliente com mais compras?
+
+Na tabela compras cada linha representa uma compra diferente, logo...
+```{r}
+df_compras %>%
+  #conta quantas compras cada id_cliente fez e ordena
+  count(id_cliente, sort = T, name = "Qtd_compras") %>% 
+  #Pega apenas os 8 clientes que fizeram mais compras
+  head(8) 
+
+#Quem são esses clientes? -> left_join(...)
+```
+
+
+1.5) compras: 8 ids de produto mais comprados?
+
+```{r}
+df_compras %>%
+  #conta quantas vendas cada id_produto teve e ordena
+  count(id_produto, sort = T, name = "Qtd_vendas") %>% 
+  #Pega apenas os 8 clientes que fizeram mais compras
+  head(8) %>% 
+  #Para que o eixo id_produto não seja tratado como numerico.
+  mutate(id_produto = as_factor(id_produto)) %>%
+  #Ordena id_produto no gráfico
+  mutate(id_produto = id_produto %>% fct_inorder %>% fct_rev) %>% 
+  ggplot(aes(x = id_produto, y = Qtd_vendas, fill = id_produto)) + 
+  geom_col(width = .7) +
+  theme_minimal() +
+  theme(legend.position = "None") +
+  labs(title = "8 produtos mais comprados", y = "Numero de compras")
+```
+
+
+1.6) compras: grafico de barras mostrando numero de compras por trimestre
+
+```{r}
+df_compras %>%
+  #cria uma nova coluna com o respectivo trimestre da compra.
+  mutate(trimestre = quarter(data)) %>% 
+  #conta quantas compras ocorreram em cada trimestre.
+  count(trimestre, name = "Qtd_compras") %>% 
+  ggplot(aes(x = trimestre, y = Qtd_compras, fill = trimestre)) +
+  geom_col(width = .7) +
+  theme_minimal() +
+  theme(legend.position = "None") +
+  labs(title = "Numero de compras por trimestre", y = "Compras")
+```
+
+
+-----
+
+# Exercicios 2: 
+
+2.1) tabela: quais são os 4 autores mais comuns por cada sexo.
+
+Precisamos do 'Sexo' e do 'Autor' na tabela df_compras
+```{r}
+df_compras %>%
+  #join com df_clientes para obter Sexo
+  left_join(df_clientes %>% select(id_cliente, Sexo)) %>% 
+  #join com df_produtos para obter autor
+  left_join(df_produtos %>% select(id_produto, Autor)) %>% 
+  select(id_compra, id_cliente, id_produto, Sexo, Autor) %>%
+  #Agrupa por sexo
+  group_by(Sexo) %>% 
+  #conta quantos livros de cada autor foram vendidos para cada sexo e ordena em ordem decrescente.
+  count(Autor, sort = T, name = "Qtd_vendas") %>% 
+  #Filtra pelos 4 mais comuns de cada sexo
+  top_n(4) %>% 
+  #Desagrupa
+  ungroup() %>% 
+  #Ordenamos por sexo para melhorar visualização.
+  arrange(Sexo) 
+``` 
+
+
+2.2) grafar: 4 autores mais comuns por sexo com "dodge"
+
+```{r}
+df_compras %>%
+  #join com df_clientes para obter Sexo
+  left_join(df_clientes %>% select(id_cliente, Sexo)) %>% 
+  #join com df_produtos para obter autor
+  left_join(df_produtos %>% select(id_produto, Autor)) %>% 
+  select(id_compra, id_cliente, id_produto, Sexo, Autor) %>%
+  #Agrupa por sexo
+  group_by(Sexo) %>% 
+  #conta quantos livros de cada autor foram vendidos para cada sexo e ordena em ordem decrescente.
+  count(Autor, sort = T, name = "Qtd_vendas") %>% 
+  #Filtra pelos 4 mais comuns de cada sexo
+  top_n(4) %>% 
+  #Desagrupa
+  ungroup() %>% 
+  ggplot(aes(x = Autor, y = Qtd_vendas, fill = Sexo)) +
+  geom_col(width = .7, position = position_dodge(preserve = "single")) + #Ou apenas position = "dodge"
+  theme_minimal() +
+  theme(legend.position = "None") +
+  labs(title = "Autores mais comuns por sexo", y = "Numero de vendas") +
+  coord_flip()
+```
+
+2.3) grafar: 4 autores mais comuns por sexo com "faceting"
+
+```{r}
+df_compras %>%
+  #join com df_clientes para obter Sexo
+  left_join(df_clientes %>% select(id_cliente, Sexo)) %>% 
+  #join com df_produtos para obter autor
+  left_join(df_produtos %>% select(id_produto, Autor)) %>% 
+  select(id_compra, id_cliente, id_produto, Sexo, Autor) %>%
+  #Agrupa por sexo
+  group_by(Sexo) %>% 
+  #conta quantos livros de cada autor foram vendidos para cada sexo e ordena em ordem decrescente.
+  count(Autor, sort = T, name = "Qtd_vendas") %>% 
+  #Filtra pelos 4 mais comuns de cada sexo
+  top_n(4) %>% 
+  #Desagrupa
+  ungroup() %>%  
+  ggplot(aes(x = Autor, y = Qtd_vendas, fill = Autor)) + 
+  geom_col(width = .7) +
+  facet_wrap(~Sexo) +
+  theme_minimal() +
+  theme(legend.position = "None") +
+  labs(tiitle = "Autores mais comuns por sexo", y = "Numero de vendas") +
+  coord_flip()
+```
+

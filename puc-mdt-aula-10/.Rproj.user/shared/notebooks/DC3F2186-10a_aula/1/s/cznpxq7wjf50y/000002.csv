@@ -1,0 +1,4 @@
+"0","gr_emails %>% "
+"0","  ggraph(layout = 'graphopt') + "
+"0","  geom_edge_link() +"
+"0","  geom_node_point(size = 5)"

@@ -1,0 +1,154 @@
+---
+title: "PUC PDT - Dashboard - Aula 09"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(tidyverse)
+library(flexdashboard)
+library(treemapify)
+`%nin%` <- function(a,b) Negate(a %in% b)
+df_crimes <- read_csv2("data/crimes.zip")
+
+## Parametros para sidebar
+year_min <- min(df_crimes$ano)
+
+year_max <- max(df_crimes$ano)
+
+regions <- c("Todos", unique(df_crimes$Regiao))
+```
+
+# Principal
+
+## Sidebar Principal {.sidebar}
+
+Inputs
+
+```{r}
+selectInput("region_selected", label = "Região:",
+            choices = regions, selected = regions[1])
+
+sliderInput("year_interval", label = "Intervalo de anos:",
+            min = year_min, max = year_max, value = c(year_min, year_max), sep = "")
+```
+
+## Row 1
+
+### Numero de Crimes
+
+```{r}
+df_crimes_filtered <- reactive({
+  df_crimes %>%
+    filter(input$region_selected == "Todos" | Regiao == input$region_selected) %>%
+    filter(ano %>% between(input$year_interval[1], input$year_interval[2]))
+})
+
+renderValueBox({
+  numero_crimes <- df_crimes_filtered() %>%
+    summarize(contagem = sum(contagem, na.rm = T))
+
+  valueBox(numero_crimes,
+           color = "teal")
+})
+```
+
+### % Roubos/Crimes
+
+```{r}
+renderGauge({
+  numero_roubos <-  df_crimes_filtered() %>%
+    filter(grupo == "Roubos") %>% 
+    summarize(contagem = sum(contagem, na.rm = T))
+  
+  numero_crimes <-  df_crimes_filtered() %>%
+    summarize(contagem = sum(contagem, na.rm = T))
+    
+  gauge(as.integer(100*(numero_roubos/numero_crimes)),
+        min = 0, max = 100, symbol = '%',
+        sectors=gaugeSectors(success = c(0, 20), warning = c(21, 60), danger = c(61, 100),colors=c("purple")))
+})
+```
+
+### % Furtos/Crimes
+
+```{r}
+renderGauge({
+ numero_furtos <- df_crimes_filtered() %>%
+    filter(grupo == "Furtos") %>% 
+    summarize(contagem = sum(contagem, na.rm = T))
+ 
+ numero_crimes <-  df_crimes_filtered() %>%
+    summarize(contagem = sum(contagem, na.rm = T))
+   
+  gauge(as.integer(100*(numero_furtos/numero_crimes)), min = 0, max = 100, symbol = '%', gaugeSectors(
+    success = c(0, 20), warning = c(21, 60), danger = c(61, 100)
+  ))
+})
+```
+
+## Row 2
+
+### Crimes por Grupo
+
+```{r}
+renderPlot({
+  df_crimes_filtered() %>%
+    group_by(grupo) %>%
+    summarize(contagem = sum(contagem, na.rm = T)) %>%
+    arrange(desc(contagem)) %>%
+    head(6) %>%
+    mutate(grupo = grupo %>% fct_inorder() %>% fct_rev) %>%
+    ggplot(aes(x = grupo, y = contagem, fill = grupo)) +
+    geom_col() +
+    scale_fill_brewer(palette="Set1") +
+    theme(legend.position = "none")
+})
+```
+
+## Row 3
+
+### Top 6 Furtos
+
+```{r}
+renderPlot({
+  df_crimes_filtered() %>%
+    filter(grupo == "Furtos") %>%
+    group_by(tipo) %>%
+    summarize(contagem = sum(contagem, na.rm = T)) %>%
+    arrange(desc(contagem)) %>%
+    head(6) %>%
+    mutate(tipo = tipo %>% str_replace_all("_", " ") %>% str_to_title()) %>%
+    mutate(tipo = tipo %>% fct_inorder() %>% fct_rev) %>%
+    ggplot(aes(area=contagem, fill = tipo, label = tipo)) +
+    geom_treemap() +
+    geom_treemap_text() +
+    scale_fill_brewer(palette="Set4") +
+    theme(legend.position = "none")
+})
+```   
+ 
+### Top 6 Roubos
+    
+```{r}
+renderPlot({
+  df_crimes_filtered() %>%
+    filter(grupo == "Roubos") %>%
+    group_by(tipo) %>%
+    summarize(contagem = sum(contagem, na.rm = T)) %>%
+    arrange(desc(contagem)) %>%
+    head(6) %>%
+    mutate(tipo = tipo %>% str_replace_all("_", " ") %>% str_to_title()) %>%
+    mutate(tipo = tipo %>% fct_inorder() %>% fct_rev) %>%
+    ggplot(aes(x = "", y = contagem, fill = tipo)) +
+    geom_bar(stat="identity", width=1) +
+    coord_polar("y", start=0) +
+    scale_fill_brewer(palette="Set1") +
+    theme_void()
+})
+```
+
+
+
